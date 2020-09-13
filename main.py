@@ -7,6 +7,7 @@ print(major_ver, minor_ver, subminor_ver)
 # Set up tracker.
 # Instead of MIL, you can also use
 print("cv2")
+tracker_type = "BOOSTING"
 trackers = dict(BOOSTING=cv2.TrackerBoosting_create(),
                 MIL=cv2.TrackerMIL_create(),
                 KCF=cv2.TrackerKCF_create(),
@@ -16,7 +17,7 @@ trackers = dict(BOOSTING=cv2.TrackerBoosting_create(),
                 MOSSE=cv2.TrackerMOSSE_create(),
                 CSRT=cv2.TrackerCSRT_create())
 
-tracker = trackers.get("BOOSTING")
+tracker = trackers.get(tracker_type)
 
 # Read video
 video = cv2.VideoCapture(r"C:\Users\korna\Downloads\Televzr Downloads\M6 Motorway Traffic [PNCJQkvALVc].mp4")
@@ -33,7 +34,7 @@ if not ok:
     sys.exit()
 
 # Define an initial bounding box
-bbox = (287, 23, 86, 320)
+# bbox = (287, 23, 86, 320)
 
 # Uncomment the line below to select a different bounding box
 bbox = cv2.selectROI(frame, False)
@@ -49,12 +50,11 @@ while True:
 
     # Start timer
     timer = cv2.getTickCount()
-
     # Update tracker
     ok, bbox = tracker.update(frame)
 
     # Calculate Frames per second (FPS)
-    fps = cv2.getTickFrequency() / (cv2.getTickCount() - timer);
+    fps = cv2.getTickFrequency() / (cv2.getTickCount() - timer)
 
     # Draw bounding box
     if ok:
@@ -67,16 +67,17 @@ while True:
         cv2.putText(frame, "Tracking failure detected", (100, 80), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 0, 255), 2)
 
     # Display tracker type on frame
-    cv2.putText(frame, tracker_type + " Tracker", (100, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (50, 170, 50), 2);
+    cv2.putText(frame, tracker_type + " Tracker", (100, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (50, 170, 50), 2)
 
     # Display FPS on frame
-    cv2.putText(frame, "FPS : " + str(int(fps)), (100, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (50, 170, 50), 2);
+    cv2.putText(frame, "FPS : " + str(int(fps)), (100, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (50, 170, 50), 2)
 
     # Display result
     cv2.imshow("Tracking", frame)
 
     # Exit if ESC pressed
     k = cv2.waitKey(1) & 0xff
-    if k == 27: break
+    if k == 27:
+        break
 
 # https://www.learnopencv.com/object-tracking-using-opencv-cpp-python/
