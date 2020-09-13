@@ -1,5 +1,6 @@
 import cv2
 import sys
+from tkinter.filedialog import askopenfilename
 
 (major_ver, minor_ver, subminor_ver) = cv2.__version__.split('.')
 print(major_ver, minor_ver, subminor_ver)
@@ -20,7 +21,7 @@ trackers = dict(BOOSTING=cv2.TrackerBoosting_create(),
 tracker = trackers.get(tracker_type)
 
 # Read video
-video = cv2.VideoCapture(r"C:\Users\korna\Downloads\Televzr Downloads\M6 Motorway Traffic [PNCJQkvALVc].mp4")
+video = cv2.VideoCapture(askopenfilename(filetypes=[("Video files", ".mp4 .avi .mov .webm")]))
 
 # Exit if video not opened.
 if not video.isOpened():
