@@ -8,18 +8,20 @@ print(major_ver, minor_ver, subminor_ver)
 # Set up tracker.
 # Instead of MIL, you can also use
 print("cv2")
-tracker_type = "BOOSTING"
-trackers = dict(BOOSTING=cv2.TrackerBoosting_create(),
+tracker_type = "CSRT"
+trackers = dict(TLD=cv2.TrackerTLD_create(),
+                MOSSE=cv2.TrackerMOSSE_create(),
+                GOTURN=cv2.TrackerGOTURN_create(),
+                BOOSTING=cv2.TrackerBoosting_create(),
                 MIL=cv2.TrackerMIL_create(),
                 KCF=cv2.TrackerKCF_create(),
-                TLD=cv2.TrackerTLD_create(),
                 MEDIANFLOW=cv2.TrackerMedianFlow_create(),
-                GOTURN=cv2.TrackerGOTURN_create(),
-                MOSSE=cv2.TrackerMOSSE_create(),
                 CSRT=cv2.TrackerCSRT_create())
 
 tracker = trackers.get(tracker_type)
 
+for key in trackers.keys():
+    trackers.get(key).save(f'settings_{key}.json')
 # Read video
 video = cv2.VideoCapture(askopenfilename(filetypes=[("Video files", ".mp4 .avi .mov .webm")]))
 
@@ -31,7 +33,7 @@ if not video.isOpened():
 # Read first frame.
 ok, frame = video.read()
 if not ok:
-    print('Cannot read video file')
+    print("Cannot read video file")
     sys.exit()
 
 # Define an initial bounding box
@@ -42,9 +44,14 @@ bbox = cv2.selectROI(frame, False)
 
 # Initialize tracker with first frame and bounding box
 ok = tracker.init(frame, bbox)
+# fs = cv2.FileStorage("settings.yaml", cv2.FILE_STORAGE_WRITE)
+# tracker.write(fs)
+# fs.release()
+
 
 while True:
     # Read a new frame
+
     ok, frame = video.read()
     if not ok:
         break
