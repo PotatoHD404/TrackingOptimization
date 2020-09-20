@@ -7,6 +7,7 @@ import numpy as np
 
 from statistics import mean
 # from mpmath import *
+from math import sqrt
 from time import sleep
 from tqdm import tqdm
 from tkinter.filedialog import askopenfilename
@@ -16,6 +17,18 @@ print(f"OpenCV v{major_ver}.{minor_ver}.{subminor_ver}")
 
 
 # iv.dps = 10
+def NCDist(boxA, boxB):
+    centerCoordA = (boxA[0] + (boxA[2] / 2), boxA[1] + (boxA[3] / 2))
+    centerCoordB = (boxB[0] + (boxB[2] / 2), boxB[1] + (boxB[3] / 2))
+    centerCoordA = (centerCoordA[0] / boxB[2], centerCoordA[1] / boxB[3])
+    centerCoordB = (centerCoordB[0] / boxB[2], centerCoordB[1] / boxB[3])
+    return sqrt((centerCoordA[0] - centerCoordB[0]) ** 2 + (centerCoordA[1] - centerCoordB[1]) ** 2)
+
+
+def CDist(boxA, boxB):
+    centerCoordA = (boxA[0] + (boxA[2] / 2), boxA[1] + (boxA[3] / 2))
+    centerCoordB = (boxB[0] + (boxB[2] / 2), boxB[1] + (boxB[3] / 2))
+    return sqrt((centerCoordA[0] - centerCoordB[0]) ** 2 + (centerCoordA[1] - centerCoordB[1]) ** 2)
 
 
 def IOU(boxA, boxB):
@@ -55,8 +68,11 @@ tracker_type = "CSRT"
 chunk_folder = "F:\\Torents\\TRAIN_0".upper()
 list_sequences = random.choices(os.listdir(os.path.join(chunk_folder, "frames")), k=10)
 list_sequences = tqdm(enumerate(list_sequences))
+
 ious = [0.0] * 10
 fpss = [0.0] * 10
+dsts = [0.0] * 10
+ndsts = [0.0] * 10
 for j, seq_ID in list_sequences:
     frames_folder = os.path.join(chunk_folder, "frames", seq_ID)
     anno_file = os.path.join(chunk_folder, "anno", seq_ID + ".txt")
@@ -109,7 +125,7 @@ for j, seq_ID in list_sequences:
 
         # Calculate Frames per second (FPS)
         fps = cv2.getTickFrequency() / (cv2.getTickCount() - timer)
-        fpss[j] += fps
+
         # Draw bounding box
         if ok:
             # Tracking success
@@ -130,14 +146,19 @@ for j, seq_ID in list_sequences:
         # Display result
         cv2.imshow("Tracking", frame)
         ious[j] += IOU(bbox, anno_bbox)
+        dsts[j] += CDist(bbox, anno_bbox)
+        ndsts[j] += NCDist(bbox, anno_bbox)
+        fpss[j] += fps
         # Exit if ESC pressed
         k = cv2.waitKey(1) & 0xff
         if k == 27:
             sys.exit()
     ious[j] /= len(frames_list)
     fpss[j] /= len(frames_list)
-    print(f" IOU = {ious[j]}, FPS = {fpss[j]}")
+    dsts[j] /= len(frames_list)
+    ndsts[j] /= len(frames_list)
+    print(f" IOU = {ious[j]}, FPS = {fpss[j]}, CDist = {dsts[j]}, NCDist = {ndsts[j]}")
     # cv2.imwrite(anno_file, frame)
 
-print(
-    f"{tracker_type} tracker : Average IOU = {mean(ious)}, average FPS = {mean(fpss)}, score = {mean(ious) * mean(fpss)}")
+print(f"{tracker_type} tracker : Average IOU = {mean(ious)}, average FPS = {mean(fpss)},",
+      f"average CDist = {mean(dsts)}, average NCDist = {mean(ndsts)}, score = {mean(ious) * mean(fpss) / mean(dsts)}")
