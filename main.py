@@ -1,5 +1,10 @@
 import cv2
 import sys
+import os
+from tqdm import tqdm
+import random
+from time import sleep
+import numpy as np
 from tkinter.filedialog import askopenfilename
 
 (major_ver, minor_ver, subminor_ver) = cv2.__version__.split('.')
@@ -20,9 +25,37 @@ trackers = dict(TLD=cv2.TrackerTLD_create(),
 
 tracker = trackers.get(tracker_type)
 
-for key in trackers.keys():
-    trackers.get(key).save(f'settings_{key}.json')
+# for key in trackers.keys():
+#     trackers.get(key).save(f'settings_{key}.json')
 # Read video
+# F:\Torents\TRAIN_0
+chunk_folder = "F:\\Torents\\TRAIN_0".upper()
+list_sqruences = random.choices(os.listdir(os.path.join(chunk_folder, "frames")), k=100)
+for seq_ID in tqdm(list_sqruences):
+    frames_folder = os.path.join(chunk_folder, "frames", seq_ID)
+    anno_file = os.path.join(chunk_folder, "anno", seq_ID + ".txt")
+    anno = np.loadtxt(anno_file, delimiter=",")
+    frames_list = [frame for frame in os.listdir(frames_folder) if
+                   frame.endswith(".jpg")]
+    if not len(ArrayBB) == len(frames_list):
+        print("Not the same number of frames and annotation!")
+        continue
+    for i in range(len(frames_list)):
+        frame_file = str(i) + ".jpg"
+        imgs_file = os.path.join(frames_folder, frame_file)
+        imbb_file = os.path.join(frames_BB_folder, frame_file)
+
+        frame = cv2.imread(imgs_file)
+        height, width, channels = frame.shape
+
+        x_min = int(ArrayBB[i][0])
+        x_max = int(ArrayBB[i][2] + ArrayBB[i][0])
+        y_min = int(ArrayBB[i][1])
+        y_max = int(ArrayBB[i][3] + ArrayBB[i][1])
+
+        cv2.rectangle(frame, (x_min, y_min), (x_max, y_max), (0, 0, 255), 2)
+        cv2.imwrite(imbb_file, frame)
+
 video = cv2.VideoCapture(askopenfilename(filetypes=[("Video files", ".mp4 .avi .mov .webm")]))
 
 # Exit if video not opened.
