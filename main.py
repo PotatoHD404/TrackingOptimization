@@ -1,35 +1,63 @@
 import cv2
 import sys
 import os
-from tqdm import tqdm
 import random
-from time import sleep
+
 import numpy as np
+
+from statistics import mean
+# from mpmath import *
+from time import sleep
+from tqdm import tqdm
 from tkinter.filedialog import askopenfilename
 
 (major_ver, minor_ver, subminor_ver) = cv2.__version__.split('.')
-print(major_ver, minor_ver, subminor_ver)
+print(f"OpenCV v{major_ver}.{minor_ver}.{subminor_ver}")
+
+
+# iv.dps = 10
+
+
+def IOU(boxA, boxB):
+    # determine the (x, y)-coordinates of the intersection rectangle
+    xA = max(boxA[0], boxB[0])
+    yA = max(boxA[1], boxB[1])
+    xB = min(boxA[2], boxB[2])
+    yB = min(boxA[3], boxB[3])
+    # compute the area of intersection rectangle
+    interArea = max(0, xB - xA + 1) * max(0, yB - yA + 1)
+    # compute the area of both the prediction and ground-truth
+    # rectangles
+    boxAArea = (boxA[2] - boxA[0] + 1) * (boxA[3] - boxA[1] + 1)
+    boxBArea = (boxB[2] - boxB[0] + 1) * (boxB[3] - boxB[1] + 1)
+    # compute the intersection over union by taking the intersection
+    # area and dividing it by the sum of prediction + ground-truth
+    # areas - the interesection area
+    iou = interArea / float(boxAArea + boxBArea - interArea)
+    # return the intersection over union value
+    return iou
+
 
 # Set up tracker.
-# Instead of MIL, you can also use
-print("cv2")
-tracker_type = "MOSSE"
-trackers = dict(TLD=cv2.TrackerTLD_create(),
-                MOSSE=cv2.TrackerMOSSE_create(),
-                GOTURN=cv2.TrackerGOTURN_create(),
-                BOOSTING=cv2.TrackerBoosting_create(),
-                MIL=cv2.TrackerMIL_create(),
-                KCF=cv2.TrackerKCF_create(),
-                MEDIANFLOW=cv2.TrackerMedianFlow_create(),
-                CSRT=cv2.TrackerCSRT_create())
+tracker_type = "CSRT"
+# trackers = dict(TLD=cv2.TrackerTLD_create(),
+#                 MOSSE=cv2.TrackerMOSSE_create(),
+#                 GOTURN=cv2.TrackerGOTURN_create(),
+#                 BOOSTING=cv2.TrackerBoosting_create(),
+#                 MIL=cv2.TrackerMIL_create(),
+#                 KCF=cv2.TrackerKCF_create(),
+#                 MEDIANFLOW=cv2.TrackerMedianFlow_create(),
+#                 CSRT=cv2.TrackerCSRT_create())
 
 # for key in trackers.keys():
 #     trackers.get(key).save(f'settings_{key}.json')
 # Read video
 chunk_folder = "F:\\Torents\\TRAIN_0".upper()
 list_sequences = random.choices(os.listdir(os.path.join(chunk_folder, "frames")), k=10)
-list_sequences = tqdm(list_sequences)
-for seq_ID in list_sequences:
+list_sequences = tqdm(enumerate(list_sequences))
+ious = [0.0] * 10
+fpss = [0.0] * 10
+for j, seq_ID in list_sequences:
     frames_folder = os.path.join(chunk_folder, "frames", seq_ID)
     anno_file = os.path.join(chunk_folder, "anno", seq_ID + ".txt")
     anno = np.loadtxt(anno_file, delimiter=",")
@@ -39,11 +67,7 @@ for seq_ID in list_sequences:
         print("Not the same number of frames and annotation!")
         continue
     # Define an initial bounding box
-    x_min = int(anno[0][0])
-    x_max = int(anno[0][2])
-    y_min = int(anno[0][1])
-    y_max = int(anno[0][3])
-    bbox = (x_min, y_min, x_max, y_max)
+    bbox = (anno[0][0], anno[0][1], anno[0][2], anno[0][3])
     frame = cv2.imread(os.path.join(frames_folder, "0.jpg"))
     if tracker_type == "MOSSE":
         tracker = cv2.TrackerMOSSE_create()
@@ -70,7 +94,7 @@ for seq_ID in list_sequences:
         imgs_file = os.path.join(frames_folder, frame_file)
 
         frame = cv2.imread(imgs_file)
-
+        anno_bbox = (anno[i][0], anno[i][1], anno[i][2], anno[i][3])
         x_min = int(anno[i][0])
         x_max = int(anno[i][2] + anno[i][0])
         y_min = int(anno[i][1])
@@ -85,7 +109,7 @@ for seq_ID in list_sequences:
 
         # Calculate Frames per second (FPS)
         fps = cv2.getTickFrequency() / (cv2.getTickCount() - timer)
-
+        fpss[j] += fps
         # Draw bounding box
         if ok:
             # Tracking success
@@ -105,9 +129,15 @@ for seq_ID in list_sequences:
 
         # Display result
         cv2.imshow("Tracking", frame)
-
+        ious[j] += IOU(bbox, anno_bbox)
         # Exit if ESC pressed
         k = cv2.waitKey(1) & 0xff
         if k == 27:
             sys.exit()
-        # cv2.imwrite(anno_file, frame)
+    ious[j] /= len(frames_list)
+    fpss[j] /= len(frames_list)
+    print(f" IOU = {ious[j]}, FPS = {fpss[j]}")
+    # cv2.imwrite(anno_file, frame)
+
+print(
+    f"{tracker_type} tracker : Average IOU = {mean(ious)}, average FPS = {mean(fpss)}, score = {mean(ious) * mean(fpss)}")
