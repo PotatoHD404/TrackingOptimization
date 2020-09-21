@@ -143,7 +143,7 @@ def Analise(videos, vid_folder, tracker_t):
                 # Tracking failure
                 # print("Tracking failure detected")
                 if True:
-                    d.get("fn")[j] += 1
+                    d["fn"][j] += 1
                 cv2.putText(frame, "Tracking failure detected", (100, 80), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 0, 255),
                             2)
 
@@ -156,41 +156,43 @@ def Analise(videos, vid_folder, tracker_t):
             # Display result
             cv2.imshow("Tracking", frame)
             iou = IOU(bbox, anno_bbox)
-            d.get("ata")[j] += iou
-            d.get("deviation")[j] += NCDist(bbox, anno_bbox)
-            d.get("fps")[j] += fpS
-            d.get("F1")[j] += F1(bbox, anno_bbox)
-            d.get("PBM")[j] += 1 - (L1(bbox, anno_bbox) if iou > 0 else Th(bbox, anno_bbox)) / Th(bbox, anno_bbox)
+            d["ata"][j] += iou
+            d["deviation"][j] += NCDist(bbox, anno_bbox)
+            d["fps"][j] += fpS
+            d["F1"][j] += F1(bbox, anno_bbox)
+            d["PBM"][j] += 1 - (L1(bbox, anno_bbox) if iou > 0 else Th(bbox, anno_bbox)) / Th(bbox, anno_bbox)
             if True:
-                d.get("g")[j] += 1
+                d["g"][j] += 1
             if iou > 0:
-                d.get("Ms")[j] += 1
-                d.get("tp")[j] += 1
+                d["Ms"][j] += 1
+                d["tp"][j] += 1
             else:
-                d.get("fp")[j] += 1
+                d["fp"][j] += 1
 
             # Exit if ESC pressed
             k = cv2.waitKey(1) & 0xff
             if k == 27:
-                sys.exit()
-        d.get("F")[j] = F(d.get("tp")[j], d.get("fp")[j], d.get("fn")[j])
-        d.get("F1")[j] /= len(frames_list)
-        d.get("ota")[j] = 1 - (d.get("fp")[j] + d.get("fn")[j]) / d.get("g")[j]
-        d.get("otp")[j] = d.get("ata")[j] / (d.get("Ms")[j] + 0.0001)
-        d.get("ata")[j] /= len(frames_list)
-        d.get("fps")[j] /= len(frames_list)
-        d.get("deviation")[j] = 1 - d.get("deviation")[j] / d.get("Ms")[j]
-        d.get("PBM")[j] /= len(frames_list)
-        # print(f" IOU = {d.get('iou')[j]}, FPS = {d.get('fps')[j]}, CDist = {d.get('dist')[j]},"
-        #       f" NCDist = {d.get('normdist')[j]}")
+                break
+        d["F"][j] = F(d["tp"][j], d["fp"][j], d["fn"][j])
+        d["F1"][j] /= len(frames_list)
+        d["ota"][j] = 1 - (d["fp"][j] + d["fn"][j]) / d["g"][j]
+        d["otp"][j] = d["ata"][j] / (d["Ms"][j] + 0.0001)
+        d["ata"][j] /= len(frames_list)
+        d["fps"][j] /= len(frames_list)
+        d["deviation"][j] = 1 - d["deviation"][j] / (d["Ms"][j] + 0.0001)
+        d["PBM"][j] /= len(frames_list)
+        # print(f" IOU = {d['iou'][j] }, FPS = {d['fps'][j] }, CDist = {d['dist'][j] },"
+        #       f" NCDist = {d['normdist'][j] }")
         # cv2.imwrite(anno_file, frame)
     return d
 
 
 tracker_type = "MOSSE"
 chunk_folder = "F:\\Torents\\TRAIN_0".upper()
-vid = tqdm(random.choices(os.listdir(os.path.join(chunk_folder, "frames")), k=1))
-df = pd.DataFrame(data=Analise(vid, chunk_folder, tracker_type))
+vid = tqdm(random.choices(os.listdir(os.path.join(chunk_folder, "frames")), k=100))
+result = Analise(vid, chunk_folder, tracker_type)
+results = {f"{tracker_type}": result}
+df = pd.DataFrame(data=result, index=vid)
 print(df)
 df.to_excel(f"{asctime(localtime()).replace(':', ' ')}.xlsx")
 # print(f"{tracker_type} tracker : Average IOU = {mean(iou)}, average FPS = {mean(fps)},",
