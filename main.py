@@ -189,10 +189,11 @@ def Analise(videos, vid_folder, tracker_t):
 
 tracker_type = "MOSSE"
 chunk_folder = "F:\\Torents\\TRAIN_0".upper()
-vid = tqdm(random.choices(os.listdir(os.path.join(chunk_folder, "frames")), k=2))
+vid = tqdm(random.choices(os.listdir(os.path.join(chunk_folder, "frames")), k=1))
 result = Analise(vid, chunk_folder, tracker_type)
 results = {f"{tracker_type}": result}
 df = pd.DataFrame(data=result, index=vid)
+df.index.name = "Video"
 print(df)
 writer = pd.ExcelWriter(f"{asctime(localtime()).replace(':', ' ')}.xlsx", engine='xlsxwriter')
 workbook = writer.book
