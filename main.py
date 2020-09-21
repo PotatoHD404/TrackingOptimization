@@ -77,9 +77,9 @@ def OTA(fn, fp, g):
 
 def Analise(videos, vid_folder, tracker_t):
     d = {'ata': [0.0] * len(videos), 'F': [0.0] * len(videos), 'F1': [0.0] * len(videos), 'otp': [0.0] * len(videos),
-         'ota': [0.0] * len(videos), 'fps': [0.0] * len(videos),
-         'deviation': [0.0] * len(videos), 'PBM': [0.0] * len(videos), 'Ms': [0] * len(videos),
-         'fp': [0] * len(videos), 'tp': [0] * len(videos), 'fn': [0] * len(videos), 'g': [0] * len(videos)}
+         'ota': [0.0] * len(videos), 'deviation': [0.0] * len(videos), 'PBM': [0.0] * len(videos),
+         'fps': [0.0] * len(videos), 'Ms': [0] * len(videos), 'fp': [0] * len(videos),
+         'tp': [0] * len(videos), 'fn': [0] * len(videos), 'g': [0] * len(videos)}
     for j, seq_ID in enumerate(videos):
         frames_folder = os.path.join(vid_folder, "frames", seq_ID)
         anno_file = os.path.join(vid_folder, "anno", seq_ID + ".txt")
@@ -172,7 +172,7 @@ def Analise(videos, vid_folder, tracker_t):
             # Exit if ESC pressed
             k = cv2.waitKey(1) & 0xff
             if k == 27:
-                break
+                sys.exit()
         d["F"][j] = F(d["tp"][j], d["fp"][j], d["fn"][j])
         d["F1"][j] /= len(frames_list)
         d["ota"][j] = 1 - (d["fp"][j] + d["fn"][j]) / d["g"][j]
@@ -189,11 +189,35 @@ def Analise(videos, vid_folder, tracker_t):
 
 tracker_type = "MOSSE"
 chunk_folder = "F:\\Torents\\TRAIN_0".upper()
-vid = tqdm(random.choices(os.listdir(os.path.join(chunk_folder, "frames")), k=100))
+vid = tqdm(random.choices(os.listdir(os.path.join(chunk_folder, "frames")), k=2))
 result = Analise(vid, chunk_folder, tracker_type)
 results = {f"{tracker_type}": result}
 df = pd.DataFrame(data=result, index=vid)
 print(df)
-df.to_excel(f"{asctime(localtime()).replace(':', ' ')}.xlsx")
+writer = pd.ExcelWriter(f"{asctime(localtime()).replace(':', ' ')}.xlsx", engine='xlsxwriter')
+workbook = writer.book
+pd.DataFrame(data={}).to_excel(writer, sheet_name='Sheet1')
+worksheet = writer.sheets['Sheet1']
+
+worksheet.set_column('A:A', 20)
+# worksheet.set_row(3, 30)
+# worksheet.set_row(6, 30)
+# worksheet.set_row(7, 30)
+merge_format = workbook.add_format({
+    'bold': 1,
+    'border': 2,
+    'align': 'center',
+    'valign': 'vcenter'})
+for i in range(10):
+    if i == 0:
+        df.to_excel(writer, sheet_name='Sheet1', startrow=1)
+        worksheet.merge_range(f'A1:N1', tracker_type, merge_format)
+    else:
+        row = i * (len(vid) + 1) + 1
+        df.to_excel(writer, sheet_name='Sheet1', startrow=row)
+        worksheet.merge_range(f'A{row+1}:N{row+1}', tracker_type, merge_format)
+    # Merge 3 cells.
+
+writer.save()
 # print(f"{tracker_type} tracker : Average IOU = {mean(iou)}, average FPS = {mean(fps)},",
 #       f"average CDist = {mean(dst)}, average NCDist = {mean(ndst)}, score = {mean(iou) * mean(fps) / mean(dst)}")
