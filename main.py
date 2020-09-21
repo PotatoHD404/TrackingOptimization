@@ -4,12 +4,13 @@ import os
 import random
 
 import numpy as np
+import pandas as pd
 
 from statistics import mean
-# from mpmath import *
 from math import sqrt
-from time import sleep
+from time import *
 from tqdm import tqdm
+from datetime import date
 from tkinter.filedialog import askopenfilename
 
 (major_ver, minor_ver, subminor_ver) = cv2.__version__.split('.')
@@ -26,18 +27,22 @@ def NCDist(T, GT):
     return sqrt((centerCoordT[0] - centerCoordGT[0]) ** 2 + (centerCoordT[1] - centerCoordGT[1]) ** 2)
 
 
-def CDist(T, GT):
+def Th(T, GT):
+    return (T[2] + T[3] + GT[2] + GT[3]) / 2
+
+
+def L1(T, GT):
     centerCoordT = (T[0] + (T[2] / 2), T[1] + (T[3] / 2))
     centerCoordGT = (GT[0] + (GT[2] / 2), GT[1] + (GT[3] / 2))
-    return sqrt((centerCoordT[0] - centerCoordGT[0]) ** 2 + (centerCoordT[1] - centerCoordGT[1]) ** 2)
+    return abs(centerCoordT[0] - centerCoordGT[0] + centerCoordT[1] - centerCoordGT[1])
 
 
 def IOU(T, GT):
-    xA = max(T[0], GT[0])
-    yA = max(T[1], GT[1])
-    xB = min(T[0] + T[2], GT[0] + GT[2])
-    yB = min(T[1] + T[3], GT[1] + GT[3])
-    interArea = max(0, xB - xA) * max(0, yB - yA)
+    xT = max(T[0], GT[0])
+    yT = max(T[1], GT[1])
+    xGT = min(T[0] + T[2], GT[0] + GT[2])
+    yGT = min(T[1] + T[3], GT[1] + GT[3])
+    interArea = max(0, xGT - xT) * max(0, yGT - yT)
     TArea = T[2] * T[3]
     GTArea = GT[2] * GT[3]
     return interArea / float(TArea + GTArea - interArea)
@@ -46,17 +51,21 @@ def IOU(T, GT):
 def F1(T, GT):
     xT = max(T[0], GT[0])
     yT = max(T[1], GT[1])
-    xGT = min(T[2], GT[2])
-    yGT = min(T[3], GT[3])
-    interArea = max(0, xGT - xT + 1) * max(0, yGT - yT + 1)
-    TArea = (T[2] - T[0] + 1) * (T[3] - T[1] + 1)
-    GTArea = (GT[2] - GT[0] + 1) * (GT[3] - GT[1] + 1)
+    xGT = min(T[0] + T[2], GT[0] + GT[2])
+    yGT = min(T[1] + T[3], GT[1] + GT[3])
+    interArea = max(0, xGT - xT) * max(0, yGT - yT)
+    TArea = T[2] * T[3]
+    GTArea = GT[2] * GT[3]
+    if not interArea > 0:
+        return 0
     p = interArea / TArea
     r = interArea / GTArea
     return 2 * p * r / (p + r)
 
 
 def F(tp, fp, fn):
+    if tp == 0:
+        return 0
     precision = tp / (tp + fp)
     recall = tp / (tp + fn)
     return 2 * precision * recall / (precision + recall)
@@ -67,8 +76,10 @@ def OTA(fn, fp, g):
 
 
 def Analise(videos, vid_folder, tracker_t):
-    d = {'iou': [0.0] * len(list(videos)), 'fps': [0.0] * len(list(videos)), 'dist': [0.0] * len(list(videos)),
-         'normdist': [0.0] * len(list(videos)), }
+    d = {'ata': [0.0] * len(videos), 'F': [0.0] * len(videos), 'F1': [0.0] * len(videos), 'otp': [0.0] * len(videos),
+         'ota': [0.0] * len(videos), 'fps': [0.0] * len(videos),
+         'deviation': [0.0] * len(videos), 'PBM': [0.0] * len(videos), 'Ms': [0] * len(videos),
+         'fp': [0] * len(videos), 'tp': [0] * len(videos), 'fn': [0] * len(videos), 'g': [0] * len(videos)}
     for j, seq_ID in enumerate(videos):
         frames_folder = os.path.join(vid_folder, "frames", seq_ID)
         anno_file = os.path.join(vid_folder, "anno", seq_ID + ".txt")
@@ -131,6 +142,8 @@ def Analise(videos, vid_folder, tracker_t):
             else:
                 # Tracking failure
                 # print("Tracking failure detected")
+                if True:
+                    d.get("fn")[j] += 1
                 cv2.putText(frame, "Tracking failure detected", (100, 80), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 0, 255),
                             2)
 
@@ -142,28 +155,43 @@ def Analise(videos, vid_folder, tracker_t):
 
             # Display result
             cv2.imshow("Tracking", frame)
-            d.get("iou")[j] += IOU(bbox, anno_bbox)
-            d.get("dist")[j] += CDist(bbox, anno_bbox)
-            d.get("normdist")[j] += NCDist(bbox, anno_bbox)
+            iou = IOU(bbox, anno_bbox)
+            d.get("ata")[j] += iou
+            d.get("deviation")[j] += NCDist(bbox, anno_bbox)
             d.get("fps")[j] += fpS
+            d.get("F1")[j] += F1(bbox, anno_bbox)
+            d.get("PBM")[j] += 1 - (L1(bbox, anno_bbox) if iou > 0 else Th(bbox, anno_bbox)) / Th(bbox, anno_bbox)
+            if True:
+                d.get("g")[j] += 1
+            if iou > 0:
+                d.get("Ms")[j] += 1
+                d.get("tp")[j] += 1
+            else:
+                d.get("fp")[j] += 1
+
             # Exit if ESC pressed
             k = cv2.waitKey(1) & 0xff
             if k == 27:
                 sys.exit()
-        d.get("iou")[j] /= len(frames_list)
+        d.get("F")[j] = F(d.get("tp")[j], d.get("fp")[j], d.get("fn")[j])
+        d.get("F1")[j] /= len(frames_list)
+        d.get("ota")[j] = 1 - (d.get("fp")[j] + d.get("fn")[j]) / d.get("g")[j]
+        d.get("otp")[j] = d.get("ata")[j] / (d.get("Ms")[j] + 0.0001)
+        d.get("ata")[j] /= len(frames_list)
         d.get("fps")[j] /= len(frames_list)
-        d.get("dist")[j] /= len(frames_list)
-        d.get("normdist")[j] /= len(frames_list)
-
-        print(f" IOU = {d.get('iou')[j]}, FPS = {d.get('fps')[j]}, CDist = {d.get('dist')[j]},"
-              f" NCDist = {d.get('normdist')[j]}")
+        d.get("deviation")[j] = 1 - d.get("deviation")[j] / d.get("Ms")[j]
+        d.get("PBM")[j] /= len(frames_list)
+        # print(f" IOU = {d.get('iou')[j]}, FPS = {d.get('fps')[j]}, CDist = {d.get('dist')[j]},"
+        #       f" NCDist = {d.get('normdist')[j]}")
         # cv2.imwrite(anno_file, frame)
     return d
 
 
 tracker_type = "MOSSE"
 chunk_folder = "F:\\Torents\\TRAIN_0".upper()
-vid = tqdm(random.choices(os.listdir(os.path.join(chunk_folder, "frames")), k=10))
-print(Analise(vid, chunk_folder, tracker_type))
+vid = tqdm(random.choices(os.listdir(os.path.join(chunk_folder, "frames")), k=1))
+df = pd.DataFrame(data=Analise(vid, chunk_folder, tracker_type))
+print(df)
+df.to_excel(f"{asctime(localtime()).replace(':', ' ')}.xlsx")
 # print(f"{tracker_type} tracker : Average IOU = {mean(iou)}, average FPS = {mean(fps)},",
 #       f"average CDist = {mean(dst)}, average NCDist = {mean(ndst)}, score = {mean(iou) * mean(fps) / mean(dst)}")
