@@ -16,50 +16,60 @@ from tkinter.filedialog import askopenfilename
 print(f"OpenCV v{major_ver}.{minor_ver}.{subminor_ver}")
 
 
+# pandas frame
 # iv.dps = 10
-def NCDist(boxA, boxB):
-    centerCoordA = (boxA[0] + (boxA[2] / 2), boxA[1] + (boxA[3] / 2))
-    centerCoordB = (boxB[0] + (boxB[2] / 2), boxB[1] + (boxB[3] / 2))
-    centerCoordA = (centerCoordA[0] / boxB[2], centerCoordA[1] / boxB[3])
-    centerCoordB = (centerCoordB[0] / boxB[2], centerCoordB[1] / boxB[3])
-    return sqrt((centerCoordA[0] - centerCoordB[0]) ** 2 + (centerCoordA[1] - centerCoordB[1]) ** 2)
+def NCDist(T, GT):
+    centerCoordT = (T[0] + (T[2] / 2), T[1] + (T[3] / 2))
+    centerCoordGT = (GT[0] + (GT[2] / 2), GT[1] + (GT[3] / 2))
+    centerCoordT = (centerCoordT[0] / GT[2], centerCoordT[1] / GT[3])
+    centerCoordGT = (centerCoordGT[0] / GT[2], centerCoordGT[1] / GT[3])
+    return sqrt((centerCoordT[0] - centerCoordGT[0]) ** 2 + (centerCoordT[1] - centerCoordGT[1]) ** 2)
 
 
-def CDist(boxA, boxB):
-    centerCoordA = (boxA[0] + (boxA[2] / 2), boxA[1] + (boxA[3] / 2))
-    centerCoordB = (boxB[0] + (boxB[2] / 2), boxB[1] + (boxB[3] / 2))
-    return sqrt((centerCoordA[0] - centerCoordB[0]) ** 2 + (centerCoordA[1] - centerCoordB[1]) ** 2)
+def CDist(T, GT):
+    centerCoordT = (T[0] + (T[2] / 2), T[1] + (T[3] / 2))
+    centerCoordGT = (GT[0] + (GT[2] / 2), GT[1] + (GT[3] / 2))
+    return sqrt((centerCoordT[0] - centerCoordGT[0]) ** 2 + (centerCoordT[1] - centerCoordGT[1]) ** 2)
 
 
-def IOU(boxA, boxB):
-    # determine the (x, y)-coordinates of the intersection rectangle
-    xA = max(boxA[0], boxB[0])
-    yA = max(boxA[1], boxB[1])
-    xB = min(boxA[2], boxB[2])
-    yB = min(boxA[3], boxB[3])
-    # compute the area of intersection rectangle
-    interArea = max(0, xB - xA + 1) * max(0, yB - yA + 1)
-    # compute the area of both the prediction and ground-truth
-    # rectangles
-    boxAArea = (boxA[2] - boxA[0] + 1) * (boxA[3] - boxA[1] + 1)
-    boxBArea = (boxB[2] - boxB[0] + 1) * (boxB[3] - boxB[1] + 1)
-    # compute the intersection over union by taking the intersection
-    # area and dividing it by the sum of prediction + ground-truth
-    # areas - the interesection area
-    iou = interArea / float(boxAArea + boxBArea - interArea)
-    # return the intersection over union value
-    return iou
+def IOU(T, GT):
+    xA = max(T[0], GT[0])
+    yA = max(T[1], GT[1])
+    xB = min(T[0] + T[2], GT[0] + GT[2])
+    yB = min(T[1] + T[3], GT[1] + GT[3])
+    interArea = max(0, xB - xA) * max(0, yB - yA)
+    TArea = T[2] * T[3]
+    GTArea = GT[2] * GT[3]
+    return interArea / float(TArea + GTArea - interArea)
 
 
-# Set up tracker.
+def F1(T, GT):
+    xT = max(T[0], GT[0])
+    yT = max(T[1], GT[1])
+    xGT = min(T[2], GT[2])
+    yGT = min(T[3], GT[3])
+    interArea = max(0, xGT - xT + 1) * max(0, yGT - yT + 1)
+    TArea = (T[2] - T[0] + 1) * (T[3] - T[1] + 1)
+    GTArea = (GT[2] - GT[0] + 1) * (GT[3] - GT[1] + 1)
+    p = interArea / TArea
+    r = interArea / GTArea
+    return 2 * p * r / (p + r)
+
+
+def F(tp, fp, fn):
+    precision = tp / (tp + fp)
+    recall = tp / (tp + fn)
+    return 2 * precision * recall / (precision + recall)
+
+
+def OTA(fn, fp, g):
+    return 1 - (fn + fp) / g
 
 
 def Analise(videos, vid_folder, tracker_t):
-    ious = [0.0] * 10
-    fpss = [0.0] * 10
-    dsts = [0.0] * 10
-    ndsts = [0.0] * 10
-    for j, seq_ID in videos:
+    d = {'iou': [0.0] * len(list(videos)), 'fps': [0.0] * len(list(videos)), 'dist': [0.0] * len(list(videos)),
+         'normdist': [0.0] * len(list(videos)), }
+    for j, seq_ID in enumerate(videos):
         frames_folder = os.path.join(vid_folder, "frames", seq_ID)
         anno_file = os.path.join(vid_folder, "anno", seq_ID + ".txt")
         anno = np.loadtxt(anno_file, delimiter=",")
@@ -110,7 +120,7 @@ def Analise(videos, vid_folder, tracker_t):
             ok, bbox = tracker.update(frame)
 
             # Calculate Frames per second (FPS)
-            fps = cv2.getTickFrequency() / (cv2.getTickCount() - timer)
+            fpS = cv2.getTickFrequency() / (cv2.getTickCount() - timer)
 
             # Draw bounding box
             if ok:
@@ -128,31 +138,32 @@ def Analise(videos, vid_folder, tracker_t):
             cv2.putText(frame, tracker_type + " Tracker", (100, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (50, 170, 50), 2)
 
             # Display FPS on frame
-            cv2.putText(frame, "FPS : " + str(int(fps)), (100, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (50, 170, 50), 2)
+            cv2.putText(frame, "FPS : " + str(int(fpS)), (100, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (50, 170, 50), 2)
 
             # Display result
             cv2.imshow("Tracking", frame)
-            ious[j] += IOU(bbox, anno_bbox)
-            dsts[j] += CDist(bbox, anno_bbox)
-            ndsts[j] += NCDist(bbox, anno_bbox)
-            fpss[j] += fps
+            d.get("iou")[j] += IOU(bbox, anno_bbox)
+            d.get("dist")[j] += CDist(bbox, anno_bbox)
+            d.get("normdist")[j] += NCDist(bbox, anno_bbox)
+            d.get("fps")[j] += fpS
             # Exit if ESC pressed
             k = cv2.waitKey(1) & 0xff
             if k == 27:
                 sys.exit()
-        ious[j] /= len(frames_list)
-        fpss[j] /= len(frames_list)
-        dsts[j] /= len(frames_list)
-        ndsts[j] /= len(frames_list)
-        print(f" IOU = {ious[j]}, FPS = {fpss[j]}, CDist = {dsts[j]}, NCDist = {ndsts[j]}")
+        d.get("iou")[j] /= len(frames_list)
+        d.get("fps")[j] /= len(frames_list)
+        d.get("dist")[j] /= len(frames_list)
+        d.get("normdist")[j] /= len(frames_list)
+
+        print(f" IOU = {d.get('iou')[j]}, FPS = {d.get('fps')[j]}, CDist = {d.get('dist')[j]},"
+              f" NCDist = {d.get('normdist')[j]}")
         # cv2.imwrite(anno_file, frame)
-    return ious, fpss, dsts, ndsts
+    return d
 
 
-tracker_type = "CSRT"
+tracker_type = "MOSSE"
 chunk_folder = "F:\\Torents\\TRAIN_0".upper()
-vid = random.choices(os.listdir(os.path.join(chunk_folder, "frames")), k=10)
-vid = tqdm(enumerate(vid))
-iou, fps, dst, ndst = Analise(vid, chunk_folder, tracker_type)
-print(f"{tracker_type} tracker : Average IOU = {mean(iou)}, average FPS = {mean(fps)},",
-      f"average CDist = {mean(dst)}, average NCDist = {mean(ndst)}, score = {mean(iou) * mean(fps) / mean(dst)}")
+vid = tqdm(random.choices(os.listdir(os.path.join(chunk_folder, "frames")), k=10))
+print(Analise(vid, chunk_folder, tracker_type))
+# print(f"{tracker_type} tracker : Average IOU = {mean(iou)}, average FPS = {mean(fps)},",
+#       f"average CDist = {mean(dst)}, average NCDist = {mean(ndst)}, score = {mean(iou) * mean(fps) / mean(dst)}")
