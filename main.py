@@ -4,15 +4,19 @@ import sys
 
 from PyQt5 import uic
 from PyQt5.QtWidgets import QApplication
-
-# Form, Window = uic.loadUiType("design.ui")
+import cv2
+# tracker = cv2.TrackerCSRT_create()
+# file_name = 'tracker_params.json'
 #
-# app = QApplication(sys.argv)
-# window = Window()
-# form = Form()
-# form.setupUi(window)
-# window.show()
-# app.exec_()
+# tracker.save(file_name)
+Form, Window = uic.loadUiType("design.ui")
+
+app = QApplication(sys.argv)
+window = Window()
+form = Form()
+form.setupUi(window)
+window.show()
+app.exec_()
 
 utils.PrintV()
 
@@ -20,7 +24,7 @@ vid = utils.GetDataSet(2)
 result = {"MOSSE": 0, "CSRT": 0}
 threads = []
 for tracker in result.keys():
-    threads.append(threading.Thread(target=utils.Analise, args=(vid, tracker, result, True)))
+    threads.append(threading.Thread(target=utils.Analise, args=(vid, tracker, result)))
 for j in threads:
     j.start()
 for j in threads:
