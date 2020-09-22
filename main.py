@@ -75,7 +75,15 @@ def OTA(fn, fp, g):
     return 1 - (fn + fp) / g
 
 
-def Analise(videos, vid_folder, tracker_t):
+def GetDataSet(number=10, progressBar=False):
+    chunk_folder = "F:\\Torents\\TRAIN_0".upper()
+    vid = random.choices(os.listdir(os.path.join(chunk_folder, "frames")), k=number)
+    if progressBar:
+        vid = tqdm(vid)
+    return vid
+
+
+def Analise(videos, tracker_t, res, ui=False, vid_folder="F:\\Torents\\TRAIN_0".upper()):
     d = {'ata': [0.0] * len(videos), 'F': [0.0] * len(videos), 'F1': [0.0] * len(videos), 'otp': [0.0] * len(videos),
          'ota': [0.0] * len(videos), 'deviation': [0.0] * len(videos), 'PBM': [0.0] * len(videos),
          'fps': [0.0] * len(videos), 'Ms': [0] * len(videos), 'fp': [0] * len(videos),
@@ -184,14 +192,19 @@ def Analise(videos, vid_folder, tracker_t):
         # print(f" IOU = {d['iou'][j] }, FPS = {d['fps'][j] }, CDist = {d['dist'][j] },"
         #       f" NCDist = {d['normdist'][j] }")
         # cv2.imwrite(anno_file, frame)
-    return d
+        res[tracker_t] = d
 
 
-tracker_type = "MOSSE"
-chunk_folder = "F:\\Torents\\TRAIN_0".upper()
-vid = tqdm(random.choices(os.listdir(os.path.join(chunk_folder, "frames")), k=1))
-result = Analise(vid, chunk_folder, tracker_type)
-results = {f"{tracker_type}": result}
+vid = GetDataSet()
+result = {"MOSSE": 0}
+threads = []
+for tracker in result.keys():
+    threads.append(threading.Thread(target=Analise, args=(vid, tracker, result)))
+for j in threads:
+    j.start()
+for j in threads:
+    j.join()
+
 df = pd.DataFrame(data=result, index=vid)
 df.index.name = "Video"
 print(df)
@@ -216,7 +229,7 @@ for i in range(10):
     else:
         row = i * (len(vid) + 1) + 1
         df.to_excel(writer, sheet_name='Sheet1', startrow=row)
-        worksheet.merge_range(f'A{row+1}:N{row+1}', tracker_type, merge_format)
+        worksheet.merge_range(f'A{row + 1}:N{row + 1}', tracker_type, merge_format)
     # Merge 3 cells.
 
 writer.save()
