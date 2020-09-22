@@ -99,8 +99,6 @@ def F1(T, GT):
 
 
 def F(tp, fp, fn):
-    if tp == 0:
-        return 0
     precision = tp / (tp + fp)
     recall = tp / (tp + fn)
     return 2 * precision * recall / (precision + recall)
@@ -155,7 +153,9 @@ def Analise(videos, tracker_type, res, ui=False, vid_folder="F:\\Torents\\TRAIN_
         if not ok:
             print("Initialisation error")
             continue
-        for i in range(len(frames_list)):
+        d["Ms"][j] += 1
+        d["tp"][j] += 1
+        for i in range(1, len(frames_list)):
             frame_file = str(i) + ".jpg"
             imgs_file = os.path.join(frames_folder, frame_file)
 
@@ -223,10 +223,10 @@ def Analise(videos, tracker_type, res, ui=False, vid_folder="F:\\Torents\\TRAIN_
         d["F"][j] = F(d["tp"][j], d["fp"][j], d["fn"][j])
         d["F1"][j] /= len(frames_list)
         d["ota"][j] = 1 - (d["fp"][j] + d["fn"][j]) / d["g"][j]
-        d["otp"][j] = d["ata"][j] / (d["Ms"][j] + 0.0001)
+        d["otp"][j] = d["ata"][j] / d["Ms"][j]
         d["ata"][j] /= len(frames_list)
         d["fps"][j] /= len(frames_list)
-        d["deviation"][j] = 1 - d["deviation"][j] / (d["Ms"][j] + 0.0001)
+        d["deviation"][j] = 1 - d["deviation"][j] / d["Ms"][j]
         if d["deviation"][j] < 0:
             d["deviation"][j] = -1
         d["PBM"][j] /= len(frames_list)
