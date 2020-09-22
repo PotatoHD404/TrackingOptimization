@@ -39,6 +39,9 @@ def WriteToExcel(vid, result):
             row = i * (len(vid) + 1) + 1
             df.to_excel(writer, sheet_name='Sheet1', startrow=row)
             worksheet.merge_range(f'A{row + 1}:N{row + 1}', key, merge_format)
+    for col in ["B", "C", "D", "E", "F", "G", "H"]:
+        worksheet.conditional_format(f'{col}3:{col}{len(result.keys()) * (len(vid) + 1) + 1}',
+                                     {'type': '3_color_scale'})
         # Merge 3 cells.
 
     writer.save()
@@ -224,6 +227,8 @@ def Analise(videos, tracker_type, res, ui=False, vid_folder="F:\\Torents\\TRAIN_
         d["ata"][j] /= len(frames_list)
         d["fps"][j] /= len(frames_list)
         d["deviation"][j] = 1 - d["deviation"][j] / (d["Ms"][j] + 0.0001)
+        if d["deviation"][j] < 0:
+            d["deviation"][j] = -1
         d["PBM"][j] /= len(frames_list)
         # print(f" IOU = {d['iou'][j] }, FPS = {d['fps'][j] }, CDist = {d['dist'][j] },"
         #       f" NCDist = {d['normdist'][j] }")
