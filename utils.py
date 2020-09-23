@@ -1,7 +1,9 @@
 import cv2
 import random
+import string
 import os
 import sys
+import json
 
 import numpy as np
 import pandas as pd
@@ -13,14 +15,18 @@ from time import asctime, localtime
 
 
 # from tkinter.filedialog import askopenfilename
+def rndStr(size=6, chars=string.ascii_uppercase + string.digits + string.ascii_lowercase):
+    return ''.join(random.choice(chars) for _ in range(size))
 
-def WriteToExcel(vid, result):
+
+def WriteToExcel(vid, results):
     writer = pd.ExcelWriter(f"{asctime(localtime()).replace(':', ' ')}.xlsx", engine='xlsxwriter')
     workbook = writer.book
     pd.DataFrame(data={}).to_excel(writer, sheet_name='Sheet1')
     worksheet = writer.sheets['Sheet1']
 
     worksheet.set_column('A:A', 20)
+    worksheet.set_column('O:S', 20)
     # worksheet.set_row(3, 30)
     # worksheet.set_row(6, 30)
     # worksheet.set_row(7, 30)
@@ -29,18 +35,21 @@ def WriteToExcel(vid, result):
         'border': 2,
         'align': 'center',
         'valign': 'vcenter'})
-    for i, key in enumerate(result.keys()):
-        df = pd.DataFrame(data=result[key], index=vid)
+    for i, result in enumerate(results):
+        data = pd.DataFrame(data=result[2], index=vid)
+        params = pd.DataFrame(data=result[1]["my_object"], index={0})
         if i == 0:
-            df.index.name = "Video"
-            df.to_excel(writer, sheet_name='Sheet1', startrow=1)
-            worksheet.merge_range(f'A1:N1', key, merge_format)
+            data.index.name = "Video"
+            params.to_excel(writer, sheet_name='Sheet1', startrow=1, startcol=13)
+            data.to_excel(writer, sheet_name='Sheet1', startrow=1)
+            worksheet.merge_range(f'A1:N1', result[0], merge_format)
         else:
             row = i * (len(vid) + 1) + 1
-            df.to_excel(writer, sheet_name='Sheet1', startrow=row)
-            worksheet.merge_range(f'A{row + 1}:N{row + 1}', key, merge_format)
+            params.to_excel(writer, sheet_name='Sheet1', startrow=row, startcol=13)
+            data.to_excel(writer, sheet_name='Sheet1', startrow=row)
+            worksheet.merge_range(f'A{row + 1}:N{row + 1}', result[0], merge_format)
     for col in ["B", "C", "D", "E", "F", "G", "H"]:
-        worksheet.conditional_format(f'{col}3:{col}{len(result.keys()) * (len(vid) + 1) + 1}',
+        worksheet.conditional_format(f'{col}3:{col}{len(results) * (len(vid) + 1) + 1}',
                                      {'type': '3_color_scale'})
         # Merge 3 cells.
 
@@ -116,11 +125,12 @@ def GetDataSet(number=10, progressBar=False):
     return vid
 
 
-def Analise(videos, tracker_type, res, ui=False, vid_folder="F:\\Torents\\TRAIN_0".upper()):
-    d = {'ata': [0.0] * len(videos), 'F': [0.0] * len(videos), 'F1': [0.0] * len(videos), 'otp': [0.0] * len(videos),
-         'ota': [0.0] * len(videos), 'deviation': [0.0] * len(videos), 'PBM': [0.0] * len(videos),
-         'fps': [0.0] * len(videos), 'Ms': [0] * len(videos), 'fp': [0] * len(videos),
-         'tp': [0] * len(videos), 'fn': [0] * len(videos), 'g': [0] * len(videos)}
+def Analise(videos, result, ui=False, vid_folder="F:\\Torents\\TRAIN_0".upper()):
+    data = {'ata': [0.0] * len(videos), 'F': [0.0] * len(videos), 'F1': [0.0] * len(videos), 'otp': [0.0] * len(videos),
+            'ota': [0.0] * len(videos), 'deviation': [0.0] * len(videos), 'PBM': [0.0] * len(videos),
+            'fps': [0.0] * len(videos), 'Ms': [0] * len(videos), 'fp': [0] * len(videos),
+            'tp': [0] * len(videos), 'fn': [0] * len(videos), 'g': [0] * len(videos)}
+    result[2] = data
     for j, seq_ID in enumerate(videos):
         frames_folder = os.path.join(vid_folder, "frames", seq_ID)
         anno_file = os.path.join(vid_folder, "anno", seq_ID + ".txt")
@@ -133,6 +143,7 @@ def Analise(videos, tracker_type, res, ui=False, vid_folder="F:\\Torents\\TRAIN_
         # Define an initial bounding box
         bbox = (anno[0][0], anno[0][1], anno[0][2], anno[0][3])
         frame = cv2.imread(os.path.join(frames_folder, "0.jpg"))
+        tracker_type = result[0]
         if tracker_type == "MOSSE":
             tracker = cv2.TrackerMOSSE_create()
         elif tracker_type == "TLD":
@@ -149,12 +160,22 @@ def Analise(videos, tracker_type, res, ui=False, vid_folder="F:\\Torents\\TRAIN_
             tracker = cv2.TrackerMedianFlow_create()
         elif tracker_type == "CSRT":
             tracker = cv2.TrackerCSRT_create()
+        file_path = rndStr() + ".json"
+        file1 = open(file_path, 'w')
+        file1.writelines(json.dumps(result[1]))
+        file1.close()
+        tracker.read(cv2.FileStorage(file_path, cv2.FILE_STORAGE_READ).getFirstTopLevelNode())
+        os.remove(file_path)
         ok = tracker.init(frame, bbox)
         if not ok:
             print("Initialisation error")
             continue
-        d["Ms"][j] += 1
-        d["tp"][j] += 1
+        data["Ms"][j] += 1
+        data["tp"][j] += 1
+        data["ata"][j] += IOU(bbox, bbox)
+        data["deviation"][j] += NCDist(bbox, bbox)
+        data["F1"][j] += F1(bbox, bbox)
+        data["PBM"][j] += 1 - L1(bbox, bbox)
         for i in range(1, len(frames_list)):
             frame_file = str(i) + ".jpg"
             imgs_file = os.path.join(frames_folder, frame_file)
@@ -187,7 +208,7 @@ def Analise(videos, tracker_type, res, ui=False, vid_folder="F:\\Torents\\TRAIN_
                 # Tracking failure
                 # print("Tracking failure detected")
                 if True:
-                    d["fn"][j] += 1
+                    data["fn"][j] += 1
                 if ui:
                     cv2.putText(frame, "Tracking failure detected", (100, 80), cv2.FONT_HERSHEY_SIMPLEX, 0.75,
                                 (0, 0, 255), 2)
@@ -202,35 +223,34 @@ def Analise(videos, tracker_type, res, ui=False, vid_folder="F:\\Torents\\TRAIN_
                 # Display result
                 cv2.imshow("Tracking", frame)
             iou = IOU(bbox, anno_bbox)
-            d["ata"][j] += iou
-            d["deviation"][j] += NCDist(bbox, anno_bbox)
-            d["fps"][j] += fpS
-            d["F1"][j] += F1(bbox, anno_bbox)
-            d["PBM"][j] += 1 - (L1(bbox, anno_bbox) if iou > 0 else Th(bbox, anno_bbox)) / Th(bbox, anno_bbox)
+            data["ata"][j] += iou
+            data["deviation"][j] += NCDist(bbox, anno_bbox)
+            data["fps"][j] += fpS
+            data["F1"][j] += F1(bbox, anno_bbox)
+            data["PBM"][j] += 1 - (L1(bbox, anno_bbox) if iou > 0 else Th(bbox, anno_bbox)) / Th(bbox, anno_bbox)
             if True:
-                d["g"][j] += 1
+                data["g"][j] += 1
             if iou > 0:
-                d["Ms"][j] += 1
-                d["tp"][j] += 1
+                data["Ms"][j] += 1
+                data["tp"][j] += 1
             else:
-                d["fp"][j] += 1
+                data["fp"][j] += 1
 
             # Exit if ESC pressed
             if ui:
                 k = cv2.waitKey(1) & 0xff
                 if k == 27:
                     sys.exit()
-        d["F"][j] = F(d["tp"][j], d["fp"][j], d["fn"][j])
-        d["F1"][j] /= len(frames_list)
-        d["ota"][j] = 1 - (d["fp"][j] + d["fn"][j]) / d["g"][j]
-        d["otp"][j] = d["ata"][j] / d["Ms"][j]
-        d["ata"][j] /= len(frames_list)
-        d["fps"][j] /= len(frames_list)
-        d["deviation"][j] = 1 - d["deviation"][j] / d["Ms"][j]
-        if d["deviation"][j] < 0:
-            d["deviation"][j] = -1
-        d["PBM"][j] /= len(frames_list)
+        data["F"][j] = F(data["tp"][j], data["fp"][j], data["fn"][j])
+        data["F1"][j] /= len(frames_list)
+        data["ota"][j] = 1 - (data["fp"][j] + data["fn"][j]) / data["g"][j]
+        data["otp"][j] = data["ata"][j] / data["Ms"][j]
+        data["ata"][j] /= len(frames_list)
+        data["fps"][j] /= len(frames_list)
+        data["deviation"][j] = 1 - data["deviation"][j] / data["Ms"][j]
+        if data["deviation"][j] < 0:
+            data["deviation"][j] = -1
+        data["PBM"][j] /= len(frames_list)
         # print(f" IOU = {d['iou'][j] }, FPS = {d['fps'][j] }, CDist = {d['dist'][j] },"
         #       f" NCDist = {d['normdist'][j] }")
         # cv2.imwrite(anno_file, frame)
-        res[tracker_type] = d
