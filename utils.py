@@ -8,10 +8,29 @@ import json
 import numpy as np
 import pandas as pd
 
+from itertools import chain
+from sklearn.model_selection import ParameterGrid
 from math import sqrt
 from tqdm import tqdm
 from statistics import mean
 from time import asctime, localtime
+
+
+def gen_grid(params):
+    result = []
+    for param in params:
+        grids = ParameterGrid(param_grid=param[1])
+        for grid in grids:
+            result.append([param[0], {'my_object': grid}, {}])
+    return result
+
+
+def col_str(n):
+    res = ""
+    while n > 0:
+        n, remainder = divmod(n - 1, 26)
+        res = chr(65 + remainder) + res
+    return res
 
 
 # from tkinter.filedialog import askopenfilename
@@ -33,23 +52,26 @@ def WriteToExcel(vid, results):
         'border': 2,
         'align': 'center',
         'valign': 'vcenter'})
+    maxCols = 0
     for i, result in enumerate(results):
         data = pd.DataFrame(data=result[2], index=vid)
         params = pd.DataFrame(data=result[1]["my_object"], index={0})
-        worksheet.set_column(f'{string.ascii_uppercase[14]}:{string.ascii_uppercase[14 + len(result[1]["my_object"])]}',
-                             20)
+        dC = len(result[2]) + 1
+        if maxCols < len(result[1]["my_object"]):
+            maxCols = len(result[1]["my_object"])
         if i == 0:
             data.index.name = "Video"
-            params.to_excel(writer, sheet_name='Sheet1', startrow=1, startcol=13)
+            params.to_excel(writer, sheet_name='Sheet1', startrow=1, startcol=dC - 1)
             data.to_excel(writer, sheet_name='Sheet1', startrow=1)
-            worksheet.merge_range(f'A1:N1', result[0], merge_format)
+            worksheet.merge_range(f'{col_str(1)}1:{col_str(dC)}1', result[0], merge_format)
         else:
             row = i * (len(vid) + 1) + 1
-            params.to_excel(writer, sheet_name='Sheet1', startrow=row, startcol=13)
+            params.to_excel(writer, sheet_name='Sheet1', startrow=row, startcol=dC - 1)
             data.to_excel(writer, sheet_name='Sheet1', startrow=row)
-            worksheet.merge_range(f'A{row + 1}:N{row + 1}', result[0], merge_format)
-    for col in ["B", "C", "D", "E", "F", "G", "H"]:
-        worksheet.conditional_format(f'{col}3:{col}{len(results) * (len(vid) + 1) + 1}',
+            worksheet.merge_range(f'{col_str(1)}{row + 1}:{col_str(dC)}{row + 1}', result[0], merge_format)
+    worksheet.set_column(f'{col_str(dC)}:{col_str(dC + maxCols)}', 20)
+    for col in chain(range(2, 10), range(dC + 1, dC + 1 + maxCols)):
+        worksheet.conditional_format(f'{col_str(col)}3:{col_str(col)}{len(results) * (len(vid) + 1) + 1}',
                                      {'type': '3_color_scale'})
         # Merge 3 cells.
 
@@ -242,6 +264,7 @@ def Analise(videos, result, ui=False, vid_folder="F:\\Torents\\TRAIN_0".upper())
                 k = cv2.waitKey(1) & 0xff
                 if k == 27:
                     sys.exit()
+            # print(tracker_type, i)
         data["F"][j] = F(data["tp"][j], data["fp"][j], data["fn"][j])
         data["F1"][j] /= len(frames_list)
         data["ota"][j] = 1 - (data["fp"][j] + data["fn"][j]) / data["g"][j]
@@ -255,4 +278,4 @@ def Analise(videos, result, ui=False, vid_folder="F:\\Torents\\TRAIN_0".upper())
         # print(f" IOU = {d['iou'][j] }, FPS = {d['fps'][j] }, CDist = {d['dist'][j] },"
         #       f" NCDist = {d['normdist'][j] }")
         # cv2.imwrite(anno_file, frame)
-        print(tracker_type, j)
+        # print(tracker_type, j)
