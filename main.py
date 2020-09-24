@@ -21,7 +21,7 @@ def update(*a):
 
 utils.PrintV()
 
-vid = utils.GetDataSet(1)
+vid = utils.GetDataSet(5)
 grid = [("MOSSE", {}), ("CSRT", {'padding': [2.0, 1.0],
                                  'template_size': [200.0, 300.0],
                                  'gsl_sigma': [1.0, 2.0],
@@ -55,7 +55,7 @@ pool = ThreadPool(8)
 pbar = tqdm(total=len(results))
 for result in results:
     pool.apply_async(utils.Analise, args=(vid, result), callback=update)
-# pool.map_async(lambda p: utils.Analise(vid, p), results, callback=update)
+# pool.map(lambda p: utils.Analise(vid, p), results)
 
 pool.close()
 pool.join()

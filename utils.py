@@ -39,6 +39,7 @@ def rndStr(size=6, chars=string.ascii_uppercase + string.digits + string.ascii_l
 
 
 def WriteToExcel(vid, results):
+    vid.append("avg")
     writer = pd.ExcelWriter(f"{asctime(localtime()).replace(':', ' ')}.xlsx", engine='xlsxwriter')
     workbook = writer.book
     pd.DataFrame(data={}).to_excel(writer, sheet_name='Sheet1')
@@ -148,10 +149,11 @@ def GetDataSet(number=10, progressBar=False):
 
 
 def Analise(videos, result, ui=False, vid_folder="F:\\Torents\\TRAIN_0".upper()):
-    data = {'ata': [0.0] * len(videos), 'F': [0.0] * len(videos), 'F1': [0.0] * len(videos), 'otp': [0.0] * len(videos),
-            'ota': [0.0] * len(videos), 'deviation': [0.0] * len(videos), 'PBM': [0.0] * len(videos),
-            'fps': [0.0] * len(videos), 'Ms': [0] * len(videos), 'fp': [0] * len(videos),
-            'tp': [0] * len(videos), 'fn': [0] * len(videos), 'g': [0] * len(videos)}
+    data = {'ata': [0.0] * (len(videos) + 1), 'F': [0.0] * (len(videos) + 1), 'F1': [0.0] * (len(videos) + 1),
+            'otp': [0.0] * (len(videos) + 1),
+            'ota': [0.0] * (len(videos) + 1), 'deviation': [0.0] * (len(videos) + 1), 'PBM': [0.0] * (len(videos) + 1),
+            'fps': [0.0] * (len(videos) + 1), 'Ms': [0] * (len(videos) + 1), 'fp': [0] * (len(videos) + 1),
+            'tp': [0] * (len(videos) + 1), 'fn': [0] * (len(videos) + 1), 'g': [0] * (len(videos) + 1)}
     result[2] = data
     for j, seq_ID in enumerate(videos):
         frames_folder = os.path.join(vid_folder, "frames", seq_ID)
@@ -275,6 +277,8 @@ def Analise(videos, result, ui=False, vid_folder="F:\\Torents\\TRAIN_0".upper())
         if data["deviation"][j] < -1:
             data["deviation"][j] = -1
         data["PBM"][j] /= len(frames_list)
+        for key in data.keys():
+            data[key][-1] = mean(data[key][:-1])
         # print(f" IOU = {d['iou'][j] }, FPS = {d['fps'][j] }, CDist = {d['dist'][j] },"
         #       f" NCDist = {d['normdist'][j] }")
         # cv2.imwrite(anno_file, frame)
