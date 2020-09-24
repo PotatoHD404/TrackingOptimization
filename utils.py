@@ -24,9 +24,7 @@ def WriteToExcel(vid, results):
     workbook = writer.book
     pd.DataFrame(data={}).to_excel(writer, sheet_name='Sheet1')
     worksheet = writer.sheets['Sheet1']
-
     worksheet.set_column('A:A', 20)
-    worksheet.set_column('O:S', 20)
     # worksheet.set_row(3, 30)
     # worksheet.set_row(6, 30)
     # worksheet.set_row(7, 30)
@@ -38,6 +36,8 @@ def WriteToExcel(vid, results):
     for i, result in enumerate(results):
         data = pd.DataFrame(data=result[2], index=vid)
         params = pd.DataFrame(data=result[1]["my_object"], index={0})
+        worksheet.set_column(f'{string.ascii_uppercase[14]}:{string.ascii_uppercase[14 + len(result[1]["my_object"])]}',
+                             20)
         if i == 0:
             data.index.name = "Video"
             params.to_excel(writer, sheet_name='Sheet1', startrow=1, startcol=13)
@@ -164,7 +164,8 @@ def Analise(videos, result, ui=False, vid_folder="F:\\Torents\\TRAIN_0".upper())
         file1 = open(file_path, 'w')
         file1.writelines(json.dumps(result[1]))
         file1.close()
-        tracker.read(cv2.FileStorage(file_path, cv2.FILE_STORAGE_READ).getFirstTopLevelNode())
+        fs = cv2.FileStorage(file_path, cv2.FILE_STORAGE_READ)
+        tracker.read(fs.getFirstTopLevelNode())
         os.remove(file_path)
         ok = tracker.init(frame, bbox)
         if not ok:
@@ -248,9 +249,10 @@ def Analise(videos, result, ui=False, vid_folder="F:\\Torents\\TRAIN_0".upper())
         data["ata"][j] /= len(frames_list)
         data["fps"][j] /= len(frames_list)
         data["deviation"][j] = 1 - data["deviation"][j] / data["Ms"][j]
-        if data["deviation"][j] < 0:
+        if data["deviation"][j] < -1:
             data["deviation"][j] = -1
         data["PBM"][j] /= len(frames_list)
         # print(f" IOU = {d['iou'][j] }, FPS = {d['fps'][j] }, CDist = {d['dist'][j] },"
         #       f" NCDist = {d['normdist'][j] }")
         # cv2.imwrite(anno_file, frame)
+        print(tracker_type, j)
