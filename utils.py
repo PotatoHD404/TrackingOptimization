@@ -40,10 +40,10 @@ def rndStr(size=6, chars=string.ascii_uppercase + string.digits + string.ascii_l
     return ''.join(random.choice(chars) for _ in range(size))
 
 
-def WriteToCSV(results):
+def WriteToCSV(results, filename=f"{asctime(localtime()).replace(':', ' ')}"):
     res = pd.DataFrame(data=results)
-    filename = f"{asctime(localtime()).replace(':', ' ')}.csv"
-    res.to_csv(filename, encoding='utf-8', index=False)
+    res.to_csv(filename + ".csv", encoding='utf-8', index=False)
+    res.to_excel(filename + ".xlsx", encoding='utf-8', index=False)
 
 
 def WriteToExcel(vid, results):
@@ -86,7 +86,6 @@ def WriteToExcel(vid, results):
         # Merge 3 cells.
 
     writer.save()
-    files.download(filename)
 
 
 # pandas frame
